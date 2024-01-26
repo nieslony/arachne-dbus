@@ -29,3 +29,5 @@ DBUS interface for openVPN and arachne
 %{python3_sitelib}/%{name}/
 
 %changelog
+* Fri Jan 26 2024 Claas Nieslony <github@nieslony.at> 0.0.1
+- Initial version
