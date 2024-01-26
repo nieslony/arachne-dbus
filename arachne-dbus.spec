@@ -25,8 +25,8 @@ DBUS interface for openVPN and arachne
 %files
 %doc README.md
 %license LICENSE
-%{python3_sitelib}/%{name}-*.egg-info/
-%{python3_sitelib}/%{name}/
+%{python3_sitelib}/arachne_dbus-*.egg-info/
+%{python3_sitelib}/arachne_dbus/
 
 %changelog
 * Fri Jan 26 2024 Claas Nieslony <github@nieslony.at> 0.0.1
