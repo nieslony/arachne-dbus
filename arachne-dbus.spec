@@ -31,6 +31,8 @@ install -v polkit/at.nieslony.Arachne.conf   %{buildroot}/etc/dbus-1/system.d
 %license LICENSE
 %{python3_sitelib}/arachne_dbus-*.egg-info/
 %{python3_sitelib}/arachne_dbus/
+/etc/dbus-1/system.d/at.nieslony.Arachne.conf
+/usr/share/polkit-1/actions/at.nieslony.Arachne.policy
 
 %changelog
 * Fri Jan 26 2024 Claas Nieslony <github@nieslony.at> 0.0.1
