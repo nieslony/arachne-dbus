@@ -24,7 +24,7 @@ DBUS interface for openVPN and arachne
 mkdir -pv %{buildroot}/usr/share/polkit-1/actions
 mkdir -pv %{buildroot}/etc/dbus-1/system.d
 install -v polkit/at.nieslony.Arachne.policy %{buildroot}/usr/share/polkit-1/actions
-install -v polkit/at.nieslony.Arachne %{buildroot}/etc/dbus-1/system.d
+install -v polkit/at.nieslony.Arachneconf    %{buildroot}/etc/dbus-1/system.d
 
 %files
 %doc README.md
