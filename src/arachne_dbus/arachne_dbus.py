@@ -28,6 +28,7 @@ class Arachne(dbus.service.Object):
     def Restart(self):
         pid_fn = f"{self._work_dir}/{self._server_name}.pid"
         pid = -1
+        print("restart")
         try:
             with open(pid_fn, "r") as f:
                 pid = int(f.read())
@@ -38,7 +39,7 @@ class Arachne(dbus.service.Object):
         try:
             os.kill(pid, signal.SIGHUP)
         except (ProcessLookupError, PermissionError) as ex:
-            raise dbus.DBusException("Cannot kill process {pid}: {ex.strerroe}")
+            raise dbus.DBusException(f"Cannot kill process {pid}: {ex.strerror}")
 
     @dbus.service.method(DBUS_IFACE_SERVER, out_signature='saa{ss}')
     def CurrentConnections(self):
@@ -49,6 +50,48 @@ class Arachne(dbus.service.Object):
         except IOError as ex:
             raise dbus.DBusException(f"Cannot open status file {status_fn}: {ex.strerror}")
         return (self.name, returnList)
+
+    def _check_polkit_privilege(self, sender, conn, privilege):
+        # Get Peer PID
+        if self.dbus_info is None:
+            # Get DBus Interface and get info thru that
+            self.dbus_info = dbus.Interface(conn.get_object("org.freedesktop.DBus",
+                                                            "/org/freedesktop/DBus/Bus", False),
+                                            "org.freedesktop.DBus")
+        pid = self.dbus_info.GetConnectionUnixProcessID(sender)
+
+        # Query polkit
+        if self.polkit is None:
+            self.polkit = dbus.Interface(dbus.SystemBus().get_object(
+            "org.freedesktop.PolicyKit1",
+            "/org/freedesktop/PolicyKit1/Authority", False),
+                                        "org.freedesktop.PolicyKit1.Authority")
+
+        # Check auth against polkit; if it times out, try again
+        try:
+            auth_response = self.polkit.CheckAuthorization(
+                ("unix-process", {"pid": dbus.UInt32(pid, variant_level=1),
+                                "start-time": dbus.UInt64(0, variant_level=1)}),
+                privilege, {"AllowUserInteraction": "true"}, dbus.UInt32(1), "", timeout=600)
+            print(auth_response)
+            (is_auth, _, details) = auth_response
+        except dbus.DBusException as e:
+            if e._dbus_error_name == "org.freedesktop.DBus.Error.ServiceUnknown":
+                # polkitd timeout, retry
+                self.polkit = None
+                return self._check_polkit_privilege(sender, conn, privilege)
+            else:
+                # it's another error, propagate it
+                raise
+
+        if not is_auth:
+            # Aww, not authorized :(
+            print(":(")
+            return False
+
+        print("Successful authorization!")
+        return True
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

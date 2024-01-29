@@ -21,6 +21,10 @@ DBUS interface for openVPN and arachne
 
 %install
 %py3_install
+mkdir -pv /usr/share/polkit-1/actions
+mkdir -pv /etc/dbus-1/system.d
+install -v at.nieslony.Arachne.policy /usr/share/polkit-1/actions
+install -v at.nieslony.Arachne /etc/dbus-1/system.d
 
 %files
 %doc README.md
