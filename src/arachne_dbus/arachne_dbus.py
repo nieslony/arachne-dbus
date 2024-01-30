@@ -41,15 +41,35 @@ class Arachne(dbus.service.Object):
         except (ProcessLookupError, PermissionError) as ex:
             raise dbus.DBusException(f"Cannot kill process {pid}: {ex.strerror}")
 
-    @dbus.service.method(DBUS_IFACE_SERVER, out_signature='saa{ss}')
-    def CurrentConnections(self):
-        status_fn = f"{self._work_dir}/status-{self._server_name}.conf"
+    @dbus.service.method(DBUS_IFACE_SERVER, out_signature='(xa(ssssxxxssss))')
+    def ServerStatus(self):
+        status_fn = f"{self._work_dir}/server-{self._server_name}.log"
+        clients = []
         try:
             with open(status_fn, "r") as f:
-                f.readlines()
+                f.readline()
+                l = f.readline().strip()
+                try:
+                    (line_head, _, statusTime) = l.split(",")
+                except ValueError as ex:
+                    raise dbus.DBusException(f'Expected line "TIME,<ISO date time>,<secs since epoch>" got: "{l}"')
+                l = f.readline()
+                if not l.startswith("HEADER,CLIENT_LIST,"):
+                    raise dbus.DBusException(f'Expected "HEADER,CLIENT_LIST,..." got "{l}"')
+                while (l := f.readline().strip()).startswith("CLIENT_LIST,"):
+                    try:
+                        (_, commonName, readAddress, virtualAddress, virtualIpV6Address, bytesReceivedStr, bytesSentStr, _, connectedSinceStr, username, clientId, peerId, dataChannelCipher) = l.split(",")
+                    except ValueError as ex:
+                        raise dbus.DBusException(f'Wrong number of fields "{str(ex)}" got "{l}"')
+                    try:
+                        bytesReceived = int(bytesReceivedStr)
+                        bytesSent = int(bytesSentStr)
+                    except ValueError as ex:
+                        raise dbus.DBusException(f"bytes received and bytes sent are not integer: {l}")
+                    clients.append((commonName, readAddress, virtualAddress, virtualIpV6Address, bytesReceived, bytesSent, connectedSinceStr, username, clientId, peerId, dataChannelCipher))
         except IOError as ex:
             raise dbus.DBusException(f"Cannot open status file {status_fn}: {ex.strerror}")
-        return (self.name, returnList)
+        return (statusTime, clients)
 
     def _check_polkit_privilege(self, sender, conn, privilege):
         # Get Peer PID
