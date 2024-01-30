@@ -26,7 +26,7 @@ class Arachne(dbus.service.Object):
 
     @dbus.service.method(DBUS_IFACE_SERVER)
     def Restart(self):
-        pid_fn = f"{self._work_dir}/{self._server_name}.pid"
+        pid_fn = f"{self._work_dir}/server-{self._server_name}.pid"
         pid = -1
         print("restart")
         try:
@@ -37,7 +37,7 @@ class Arachne(dbus.service.Object):
         except ValueError as ex:
             raise dbus.DBusException(f"Cannot read pid from {pid_fn}: {str(ex)}")
         try:
-            os.kill(pid, signal.SIGHUP)
+            os.kill(pid, signal.SIGUSR1)
         except (ProcessLookupError, PermissionError) as ex:
             raise dbus.DBusException(f"Cannot kill process {pid}: {ex.strerror}")
 
@@ -99,7 +99,7 @@ def main():
         )
     parser.add_argument(
         "-b", "--bus",
-        choices=["system","user"],
+        choices=["system","session"],
         default="system",
         )
     parser.add_argument(
