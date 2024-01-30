@@ -92,8 +92,7 @@ class Arachne(dbus.service.Object):
         print("Successful authorization!")
         return True
 
-
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         prog="arachne_dbus",
         description="DBUS interface openvpn <-> arachne"
@@ -117,3 +116,5 @@ if __name__ == '__main__':
     object = Arachne("SiteVpn", "arachne-site", args)
     loop.run()
 
+if __name__ == '__main__':
+    main()
