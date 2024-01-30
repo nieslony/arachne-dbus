@@ -1,0 +1,18 @@
+[Unit]
+Description=Arachne DBUS service
+Before=network-pre.target
+Wants=network-pre.target
+After=dbus.service
+After=polkit.service
+
+[Service]
+ExecStart=/usr/bin/arachne-dbus
+StandardOutput=null
+StandardError=null
+Type=dbus
+BusName=at.nieslony.Arachne
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
+Alias=at.nieslony.Arachne.service
