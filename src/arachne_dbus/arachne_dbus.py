@@ -4,14 +4,23 @@ import dbus.service
 import time
 import signal
 import os
+import os.path
+import threading
+import inotify_simple
+import time
 
 DBUS_BUS_NAME = "at.nieslony.Arachne"
 DBUS_IFACE_SERVER = DBUS_BUS_NAME + ".Server"
+
+
 
 class Arachne(dbus.service.Object):
     def __init__(self, object_name, server_name, args):
         self._work_dir = args.directory
         self._server_name = server_name
+        self._pid_fn = f"{self._work_dir}/server-{self._server_name}.pid"
+        self._status_fn = f"{self._work_dir}/server-{self._server_name}.log"
+
         if args.bus == "system":
             self.bus = dbus.SystemBus()
         else:
@@ -23,30 +32,54 @@ class Arachne(dbus.service.Object):
         self.dbus_info = None
         self.polkit = None
 
+        self._observer = threading.Thread(target=self.observe_status)
+        self._observer.start()
 
-    @dbus.service.method(DBUS_IFACE_SERVER)
-    def Restart(self):
-        pid_fn = f"{self._work_dir}/server-{self._server_name}.pid"
+    def observe_status(self):
+        print(f"Starting observer for {self._status_fn}.")
+        inotify = inotify_simple.INotify()
+        if not os.path.exists(self._status_fn):
+            f = open(self._status_fn, "a")
+            f.close()
+        wd = inotify.add_watch(self._status_fn, inotify_simple.flags.MODIFY)
+        last_notify = 0
+        while True:
+            for event in inotify.read():
+                now = time.time()
+                if now - last_notify > 1:
+                    print(f"{time.strftime("%H:%M:%S")} {self._status_fn} {str(event)}")
+                    last_notify = now
+        print(f"Terminating observer for {self._status_fn}.")
+
+    def sendSignal(self, sign):
         pid = -1
         print("restart")
         try:
-            with open(pid_fn, "r") as f:
+            with open(self._pid_fn, "r") as f:
                 pid = int(f.read())
         except IOError as ex:
             raise dbus.DBusException(f"Cannot open pid file {pid_fn}: {ex.strerror}")
         except ValueError as ex:
             raise dbus.DBusException(f"Cannot read pid from {pid_fn}: {str(ex)}")
         try:
-            os.kill(pid, signal.SIGUSR1)
+            os.kill(pid, sign)
         except (ProcessLookupError, PermissionError) as ex:
             raise dbus.DBusException(f"Cannot kill process {pid}: {ex.strerror}")
 
+    @dbus.service.method(DBUS_IFACE_SERVER)
+    def Restart(self):
+        self.sendSignal(signal.SIGUSR1)
+
     @dbus.service.method(DBUS_IFACE_SERVER, out_signature='(xa(ssssxxxssss))')
     def ServerStatus(self):
-        status_fn = f"{self._work_dir}/server-{self._server_name}.log"
+        print("ServerStatus")
+        self.sendSignal(signal.SIGUSR2)
+        return self.readServerStatus()
+
+    def readServerStatus(self):
         clients = []
         try:
-            with open(status_fn, "r") as f:
+            with open(self._status_fn, "r") as f:
                 f.readline()
                 l = f.readline().strip()
                 try:
@@ -134,7 +167,10 @@ def main():
     loop = GLib.MainLoop()
     object = Arachne("UserVpn", "arachne", args)
     object = Arachne("SiteVpn", "arachne-site", args)
-    loop.run()
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        print("Terminated")
 
 if __name__ == '__main__':
     main()
