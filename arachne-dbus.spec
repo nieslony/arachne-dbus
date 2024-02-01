@@ -21,12 +21,12 @@ DBUS interface for openVPN and arachne
 
 %install
 %py3_install
-mkdir -pv %{buildroot}/usr/share/polkit-1/actions
+mkdir -pv %{buildroot}/%{_datadir}/polkit-1/actions
 mkdir -pv %{buildroot}/etc/dbus-1/system.d
-mkdir -pv %{buildroot}/usr/lib/systemd/system
+mkdir -pv %{buildroot}/%{_prefix}/lib/systemd/system
 install -v polkit/at.nieslony.Arachne.policy %{buildroot}/%{_datadir}/polkit-1/actions
 install -v polkit/at.nieslony.Arachne.conf   %{buildroot}/etc/dbus-1/system.d
-install -v arachne-dbus.service              %{buildroot}/usr/lib/systemd/system
+install -v arachne-dbus.service              %{buildroot}/%{_prefix}/lib/systemd/system
 
 %files
 %doc README.md
@@ -36,7 +36,7 @@ install -v arachne-dbus.service              %{buildroot}/usr/lib/systemd/system
 /etc/dbus-1/system.d/at.nieslony.Arachne.conf
 %{_datadir}/polkit-1/actions/at.nieslony.Arachne.policy
 %{_bindir}/arachne-dbus
-/usr/lib/systemd/system/arachne-dbus.service
+%{_prefix}/lib/systemd/system/arachne-dbus.service
 
 %changelog
 * Fri Jan 26 2024 Claas Nieslony <github@nieslony.at> 0.0.1
