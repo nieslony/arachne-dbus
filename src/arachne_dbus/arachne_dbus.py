@@ -8,11 +8,11 @@ import os.path
 import threading
 import inotify_simple
 import time
+import sys
+import syslog
 
 DBUS_BUS_NAME = "at.nieslony.Arachne"
 DBUS_IFACE_SERVER = DBUS_BUS_NAME + ".Server"
-
-
 
 class Arachne(dbus.service.Object):
     def __init__(self, object_name, server_name, args):
@@ -20,6 +20,7 @@ class Arachne(dbus.service.Object):
         self._server_name = server_name
         self._pid_fn = f"{self._work_dir}/server-{self._server_name}.pid"
         self._status_fn = f"{self._work_dir}/server-{self._server_name}.log"
+        self._console_log = args.console_log
 
         if args.bus == "system":
             self.bus = dbus.SystemBus()
@@ -35,8 +36,28 @@ class Arachne(dbus.service.Object):
         self._observer = threading.Thread(target=self.observe_status)
         self._observer.start()
 
+    def log(self, priority, message):
+        if (self._console_log):
+            if priority == syslog.LOG_ERR:
+                prefix = "Error"
+                f = sys.stderr
+            elif priority == syslog.LOG_WARNING:
+                prefix = "Warning"
+                f = sys.stderr
+            elif priority == syslog.LOG_INFO:
+                prefix = "Info"
+                f = sys.stdout
+            else:
+                prefix = "???"
+                f = sys.stdout
+            print(f"{prefix}: {message}", file=f)
+        else:
+            syslog.syslog(priority, message)
+        if priority == syslog.LOG_ERR:
+            raise dbus.DBusException(message)
+
     def observe_status(self):
-        print(f"Starting observer for {self._status_fn}.")
+        self.log(syslog.LOG_INFO, f"Starting observer for {self._status_fn}.")
         inotify = inotify_simple.INotify()
         if not os.path.exists(self._status_fn):
             f = open(self._status_fn, "a")
@@ -47,34 +68,43 @@ class Arachne(dbus.service.Object):
             for event in inotify.read():
                 now = time.time()
                 if now - last_notify > 1:
-                    print(f"{time.strftime("%H:%M:%S")} {self._status_fn} {str(event)}")
+                    self.log(syslog.LOG_DEBUG, f"{time.strftime("%H:%M:%S")} {self._status_fn} {str(event)}")
                     last_notify = now
-        print(f"Terminating observer for {self._status_fn}.")
+                    try:
+                        (ti, cl) = self.readServerStatus()
+                        self.ServerStatusChanged(ti, cl)
+                    except dbus.DBusException:
+                        pass
+        self.log(syslog.LOG_INFO, f"Terminating observer for {self._status_fn}.")
 
     def sendSignal(self, sign):
         pid = -1
-        print("restart")
         try:
             with open(self._pid_fn, "r") as f:
                 pid = int(f.read())
         except IOError as ex:
-            raise dbus.DBusException(f"Cannot open pid file {pid_fn}: {ex.strerror}")
+            self.log(syslog.LOG_ERR, f"Cannot open pid file {self._pid_fn}: {ex.strerror}")
         except ValueError as ex:
-            raise dbus.DBusException(f"Cannot read pid from {pid_fn}: {str(ex)}")
+            self.log(syslog.LOG_ERR, f"Cannot read pid from {pid_fn}: {str(ex)}")
         try:
             os.kill(pid, sign)
         except (ProcessLookupError, PermissionError) as ex:
-            raise dbus.DBusException(f"Cannot kill process {pid}: {ex.strerror}")
+            self.log(syslog.LOG_ERR, f"Cannot kill process {pid}: {ex.strerror}")
 
     @dbus.service.method(DBUS_IFACE_SERVER)
     def Restart(self):
+        self.log(syslog.LOG_INFO, f"Restart {self._server_name}")
         self.sendSignal(signal.SIGUSR1)
 
     @dbus.service.method(DBUS_IFACE_SERVER, out_signature='(xa(ssssxxxssss))')
     def ServerStatus(self):
-        print("ServerStatus")
+        self.log(syslog.LOG_INFO, f"ServerStatus {self._server_name}")
         self.sendSignal(signal.SIGUSR2)
         return self.readServerStatus()
+
+    @dbus.service.signal(DBUS_IFACE_SERVER, signature='xa(ssssxxxssss)')
+    def ServerStatusChanged(self, ti, cl):
+        pass
 
     def readServerStatus(self):
         clients = []
@@ -85,23 +115,23 @@ class Arachne(dbus.service.Object):
                 try:
                     (line_head, _, statusTime) = l.split(",")
                 except ValueError as ex:
-                    raise dbus.DBusException(f'Expected line "TIME,<ISO date time>,<secs since epoch>" got: "{l}"')
+                    self.log(syslog.LOG_ERR, f'Expected line "TIME,<ISO date time>,<secs since epoch>" got: "{l}"')
                 l = f.readline()
                 if not l.startswith("HEADER,CLIENT_LIST,"):
-                    raise dbus.DBusException(f'Expected "HEADER,CLIENT_LIST,..." got "{l}"')
+                    self.log(syslog.LOG_ERR, f'Expected "HEADER,CLIENT_LIST,..." got "{l}"')
                 while (l := f.readline().strip()).startswith("CLIENT_LIST,"):
                     try:
                         (_, commonName, readAddress, virtualAddress, virtualIpV6Address, bytesReceivedStr, bytesSentStr, _, connectedSinceStr, username, clientId, peerId, dataChannelCipher) = l.split(",")
                     except ValueError as ex:
-                        raise dbus.DBusException(f'Wrong number of fields "{str(ex)}" got "{l}"')
+                        self.log(syslog.LOG_ERR, f'Wrong number of fields "{str(ex)}" got "{l}"')
                     try:
                         bytesReceived = int(bytesReceivedStr)
                         bytesSent = int(bytesSentStr)
                     except ValueError as ex:
-                        raise dbus.DBusException(f"bytes received and bytes sent are not integer: {l}")
+                        self.log(syslog.LOG_ERR, f"bytes received and bytes sent are not integer: {l}")
                     clients.append((commonName, readAddress, virtualAddress, virtualIpV6Address, bytesReceived, bytesSent, connectedSinceStr, username, clientId, peerId, dataChannelCipher))
         except IOError as ex:
-            raise dbus.DBusException(f"Cannot open status file {status_fn}: {ex.strerror}")
+            self.log(syslog.LOG_ERR, f"Cannot open status file {status_fn}: {ex.strerror}")
         return (statusTime, clients)
 
     def _check_polkit_privilege(self, sender, conn, privilege):
@@ -126,7 +156,7 @@ class Arachne(dbus.service.Object):
                 ("unix-process", {"pid": dbus.UInt32(pid, variant_level=1),
                                 "start-time": dbus.UInt64(0, variant_level=1)}),
                 privilege, {"AllowUserInteraction": "true"}, dbus.UInt32(1), "", timeout=600)
-            print(auth_response)
+            self.log(syslog.LOG_INFO, auth_response)
             (is_auth, _, details) = auth_response
         except dbus.DBusException as e:
             if e._dbus_error_name == "org.freedesktop.DBus.Error.ServiceUnknown":
@@ -135,14 +165,14 @@ class Arachne(dbus.service.Object):
                 return self._check_polkit_privilege(sender, conn, privilege)
             else:
                 # it's another error, propagate it
-                raise
+                self.log(syslog.LOG_ERR, str(e))
 
         if not is_auth:
             # Aww, not authorized :(
-            print(":(")
+            self.log(syslog.LOG_WARNING, "Not authorized")
             return False
 
-        print("Successful authorization!")
+        self.log(syslog.LOG_INFO, "Successful authorization!")
         return True
 
 def main():
@@ -158,6 +188,11 @@ def main():
     parser.add_argument(
         "-d", "--directory",
         default="/etc/openvpn/server")
+    parser.add_argument(
+        "-c", "--console-log",
+        action='store_true',
+        help="Log to console instead of syslog"
+        )
     args = parser.parse_args()
 
     import dbus.mainloop.glib
@@ -170,7 +205,7 @@ def main():
     try:
         loop.run()
     except KeyboardInterrupt:
-        print("Terminated")
+        pass
 
 if __name__ == '__main__':
     main()
