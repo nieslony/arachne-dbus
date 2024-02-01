@@ -25,7 +25,7 @@ DBUS interface for openVPN and arachne
 mkdir -pv %{buildroot}/%{_datadir}/polkit-1/actions
 mkdir -pv %{buildroot}/etc/dbus-1/system.d
 mkdir -pv %{buildroot}/%{_prefix}/lib/systemd/system
-mkdir -pv %{buildroot}/%{python3_sitelib}/arachne_dbusl
+mkdir -pv %{buildroot}/%{python3_sitelib}/arachne_dbus
 %py3_install
 install -v polkit/at.nieslony.Arachne.policy %{buildroot}/%{_datadir}/polkit-1/actions
 install -v polkit/at.nieslony.Arachne.conf   %{buildroot}/etc/dbus-1/system.d
