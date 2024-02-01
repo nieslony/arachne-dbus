@@ -68,7 +68,7 @@ class Arachne(dbus.service.Object):
             for event in inotify.read():
                 now = time.time()
                 if now - last_notify > 1:
-                    self.log(syslog.LOG_DEBUG, f"{time.strftime("%H:%M:%S")} {self._status_fn} {str(event)}")
+                    self.log(syslog.LOG_DEBUG, f"{time.strftime('%H:%M:%S')} {self._status_fn} {str(event)}")
                     last_notify = now
                     try:
                         (ti, cl) = self.readServerStatus()
