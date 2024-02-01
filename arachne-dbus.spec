@@ -1,14 +1,14 @@
-Name: arachne-dbus
-Version: 0.0.1
-Release: 0%{?dist}
-License: GPLv3
-Summary: DBUS interface for openVPN and arachne
-Source0: %{name}-%{version}.tar.gz
+Name:       arachne-dbus
+Version:    0.0.1
+Release:    0%{?dist}
+License:    GPLv3
+Summary:    DBUS interface for openVPN and arachne
+Source0:    %{name}-%{version}.tar.gz
+BuildArch:  noarch
 
-BuildArch: noarch
-
-BuildRequires: python3-devel
-BuildRequires: python3-setuptools
+BuildRequires:  python3-devel
+BuildRequires:  python3-setuptools
+%{?python_enable_dependency_generator}
 
 %description
 DBUS interface for openVPN and arachne
