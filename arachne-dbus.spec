@@ -1,5 +1,5 @@
 Name:       arachne-dbus
-Version:    0.1.3
+Version:    0.1.3.git_2402212133_fa8d26c
 Release:    1%{?dist}
 License:    GPLv3
 Summary:    DBUS interface for openVPN and arachne
@@ -42,6 +42,15 @@ install -v arachne-dbus.service              %{buildroot}/%{_prefix}/lib/systemd
 %{_prefix}/lib/systemd/system/arachne-dbus.service
 
 %changelog
+* Wed Feb 21 2024 Claas Nieslony <github@nieslony.at>
+- Fix: member variable (github@nieslony.at)
+
+* Wed Feb 21 2024 Claas Nieslony <github@nieslony.at>
+- Fix: member variable (github@nieslony.at)
+
+* Wed Feb 21 2024 Claas Nieslony <github@nieslony.at>
+- Fix: member variable (github@nieslony.at)
+
 * Thu Feb 01 2024 Claas Nieslony <github@nieslony.at> 0.1.3-1
 - Fix: typo (github@nieslony.at)
 
