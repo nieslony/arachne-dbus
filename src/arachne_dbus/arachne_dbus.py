@@ -85,7 +85,7 @@ class Arachne(dbus.service.Object):
         except IOError as ex:
             self.log(syslog.LOG_ERR, f"Cannot open pid file {self._pid_fn}: {ex.strerror}")
         except ValueError as ex:
-            self.log(syslog.LOG_ERR, f"Cannot read pid from {pid_fn}: {str(ex)}")
+            self.log(syslog.LOG_ERR, f"Cannot read pid from {self._pid_fn}: {str(ex)}")
         try:
             os.kill(pid, sign)
         except (ProcessLookupError, PermissionError) as ex:
@@ -131,7 +131,7 @@ class Arachne(dbus.service.Object):
                         self.log(syslog.LOG_ERR, f"bytes received and bytes sent are not integer: {l}")
                     clients.append((commonName, readAddress, virtualAddress, virtualIpV6Address, bytesReceived, bytesSent, connectedSinceStr, username, clientId, peerId, dataChannelCipher))
         except IOError as ex:
-            self.log(syslog.LOG_ERR, f"Cannot open status file {status_fn}: {ex.strerror}")
+            self.log(syslog.LOG_ERR, f"Cannot open status file {self._status_fn}: {ex.strerror}")
         return (statusTime, clients)
 
     def _check_polkit_privilege(self, sender, conn, privilege):
