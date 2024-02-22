@@ -6,6 +6,7 @@ setup(
     version = arachne_dbus.__version__,
     author = "Claas Nieslony",
     license = "GPVv3",
+    packages = ["arachne_dbus"],
     package_dir = {
         "": "src"
         },
