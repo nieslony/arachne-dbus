@@ -18,8 +18,8 @@ class Arachne(dbus.service.Object):
     def __init__(self, object_name, server_name, args):
         self._work_dir = args.directory
         self._server_name = server_name
-        self._pid_fn = f"{self._work_dir}/server-{self._server_name}.pid"
-        self._status_fn = f"{self._work_dir}/server-{self._server_name}.log"
+        self._pid_fn = f"{self._work_dir}/arachne-{self._server_name}-server.pid"
+        self._status_fn = f"{self._work_dir}/arachne-{self._server_name}-server.log"
         self._console_log = args.console_log
 
         if args.bus == "system":
@@ -34,11 +34,15 @@ class Arachne(dbus.service.Object):
         self.polkit = None
 
         self._observer = threading.Thread(target=self.observe_status)
+        self._observer.daemon = True
         self._observer.start()
 
     def log(self, priority, message):
         if (self._console_log):
-            if priority == syslog.LOG_ERR:
+            if priority == syslog.LOG_CRIT:
+                prefix = "Critical"
+                f = sys.stderr
+            elif priority == syslog.LOG_ERR:
                 prefix = "Error"
                 f = sys.stderr
             elif priority == syslog.LOG_WARNING:
@@ -46,6 +50,9 @@ class Arachne(dbus.service.Object):
                 f = sys.stderr
             elif priority == syslog.LOG_INFO:
                 prefix = "Info"
+                f = sys.stdout
+            elif priority == syslog.LOG_DEBUG:
+                prefix = "Debug"
                 f = sys.stdout
             else:
                 prefix = "???"
@@ -62,7 +69,11 @@ class Arachne(dbus.service.Object):
         if not os.path.exists(self._status_fn):
             f = open(self._status_fn, "a")
             f.close()
-        wd = inotify.add_watch(self._status_fn, inotify_simple.flags.MODIFY)
+        try:
+            wd = inotify.add_watch(self._status_fn, inotify_simple.flags.MODIFY)
+        except OSError as ex:
+            self.log(syslog.LOG_CRIT, f"Error accessing {self._status_fn}: {ex}")
+            os.kill(os.getpid(), signal.SIGTERM)
         last_notify = 0
         while True:
             for event in inotify.read():
@@ -89,7 +100,7 @@ class Arachne(dbus.service.Object):
         try:
             os.kill(pid, sign)
         except (ProcessLookupError, PermissionError) as ex:
-            self.log(syslog.LOG_ERR, f"Cannot kill process {pid}: {ex.strerror}")
+            self.log(syslog.LOG_ERR, f"Cannot send signal {sign} to process {pid}: {ex.strerror}")
 
     @dbus.service.method(DBUS_IFACE_SERVER)
     def Restart(self):
@@ -199,10 +210,12 @@ def main():
     from gi.repository import GLib
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
-    loop = GLib.MainLoop()
-    object = Arachne("UserVpn", "arachne", args)
-    object = Arachne("SiteVpn", "arachne-site", args)
+    userVpn = None
+    siteVpn = None
     try:
+        loop = GLib.MainLoop()
+        userVpn = Arachne("UserVpn", "user", args)
+        siteVpn = Arachne("SiteVpn", "site", args)
         loop.run()
     except KeyboardInterrupt:
         pass
