@@ -104,7 +104,7 @@ class Arachne(dbus.service.Object):
 
     @dbus.service.method(DBUS_IFACE_SERVER)
     def Restart(self):
-        self.log(syslog.LOG_INFO, f"Restart {self._server_name}")
+        self.log(syslog.LOG_INFO, f"Restart {self._server_name} VPN")
         self.sendSignal(signal.SIGUSR1)
 
     @dbus.service.method(DBUS_IFACE_SERVER, out_signature='(xa(ssssxxxssss))')
@@ -198,7 +198,7 @@ def main():
         )
     parser.add_argument(
         "-d", "--directory",
-        default="/etc/openvpn/server")
+        default="/run/openvpn-server")
     parser.add_argument(
         "-c", "--console-log",
         action='store_true',
