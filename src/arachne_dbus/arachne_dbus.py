@@ -27,7 +27,10 @@ class Arachne(dbus.service.Object):
         else:
             self.bus = dbus.SessionBus()
 
-        name = dbus.service.BusName(DBUS_BUS_NAME, bus=self.bus)
+        try:
+            name = dbus.service.BusName(DBUS_BUS_NAME, bus=self.bus)
+        except dbus.exceptions.DBusException as ex:
+            self.log(syslog.LOG_CRIT, f"Cannot register DBUS service {DBUS_BUS_NAME}: {ex}")
         super().__init__(name, "/" + object_name)
 
         self.dbus_info = None
@@ -62,18 +65,23 @@ class Arachne(dbus.service.Object):
             syslog.syslog(priority, message)
         if priority == syslog.LOG_ERR:
             raise dbus.DBusException(message)
+        elif priority == syslog.LOG_CRIT:
+            os.kill(os.getpid(), signal.SIGTERM)
 
     def observe_status(self):
         self.log(syslog.LOG_INFO, f"Starting observer for {self._status_fn}.")
         inotify = inotify_simple.INotify()
         if not os.path.exists(self._status_fn):
-            f = open(self._status_fn, "a")
-            f.close()
+            self.log(syslog.LOG_INFO, f"Log file does not exist, creating empty one.")
+            try:
+                f = open(self._status_fn, "a")
+                f.close()
+            except PermissionError as ex:
+                self.log(syslog.LOG_CRIT, f"Error creating {self._status_fn}: {ex}")
         try:
             wd = inotify.add_watch(self._status_fn, inotify_simple.flags.MODIFY)
         except OSError as ex:
             self.log(syslog.LOG_CRIT, f"Error accessing {self._status_fn}: {ex}")
-            os.kill(os.getpid(), signal.SIGTERM)
         last_notify = 0
         while True:
             for event in inotify.read():
