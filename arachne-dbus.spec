@@ -8,6 +8,8 @@ BuildArch:  noarch
 
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
+BuildRequires:  systemd-rpm-macros
+
 Requires:       python%{python3_pkgversion}-dbus
 Requires:       python%{python3_pkgversion}-inotify_simple
 %{?python_enable_dependency_generator}
