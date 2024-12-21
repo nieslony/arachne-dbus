@@ -19,7 +19,7 @@ class Arachne(dbus.service.Object):
         self._work_dir = args.directory
         self._server_name = server_name
         self._pid_fn = f"{self._work_dir}/arachne-{self._server_name}-server.pid"
-        self._status_fn = f"{self._work_dir}/arachne-{self._server_name}-server.log"
+        self._status_fn = f"{self._work_dir}/status-arachne-{self._server_name}.log"
         self._console_log = args.console_log
 
         if args.bus == "system":
