@@ -87,7 +87,10 @@ class Arachne(dbus.service.Object):
             for event in inotify.read():
                 now = time.time()
                 if now - last_notify > 1:
-                    self.log(syslog.LOG_DEBUG, f"{time.strftime('%H:%M:%S')} {self._status_fn} {str(event)}")
+                    self.log(
+                        syslog.LOG_DEBUG,
+                        f"{time.strftime('%H:%M:%S')} Got observer event on {self._status_fn} {str(event)}"
+                    )
                     last_notify = now
                     try:
                         (ti, cl) = self.readServerStatus()
@@ -117,7 +120,7 @@ class Arachne(dbus.service.Object):
 
     @dbus.service.method(DBUS_IFACE_SERVER, out_signature='(xa(ssssxxxssss))')
     def ServerStatus(self):
-        self.log(syslog.LOG_INFO, f"ServerStatus {self._server_name}")
+        self.log(syslog.LOG_INFO, f"ServerStatus {self._server_name} changed")
         self.sendSignal(signal.SIGUSR2)
         return self.readServerStatus()
 
@@ -127,6 +130,7 @@ class Arachne(dbus.service.Object):
 
     def readServerStatus(self):
         clients = []
+        statusTime = ""
         try:
             with open(self._status_fn, "r") as f:
                 f.readline()
@@ -151,30 +155,45 @@ class Arachne(dbus.service.Object):
                     clients.append((commonName, readAddress, virtualAddress, virtualIpV6Address, bytesReceived, bytesSent, connectedSinceStr, username, clientId, peerId, dataChannelCipher))
         except IOError as ex:
             self.log(syslog.LOG_ERR, f"Cannot open status file {self._status_fn}: {ex.strerror}")
+
+        self.log(syslog.LOG_DEBUG, f"Clients connected to arachne-{self._server_name}: {clients}")
         return (statusTime, clients)
 
     def _check_polkit_privilege(self, sender, conn, privilege):
         # Get Peer PID
         if self.dbus_info is None:
             # Get DBus Interface and get info thru that
-            self.dbus_info = dbus.Interface(conn.get_object("org.freedesktop.DBus",
-                                                            "/org/freedesktop/DBus/Bus", False),
-                                            "org.freedesktop.DBus")
+            self.dbus_info = dbus.Interface(
+                conn.get_object("org.freedesktop.DBus", "/org/freedesktop/DBus/Bus", False),
+                "org.freedesktop.DBus"
+            )
         pid = self.dbus_info.GetConnectionUnixProcessID(sender)
 
         # Query polkit
         if self.polkit is None:
-            self.polkit = dbus.Interface(dbus.SystemBus().get_object(
-            "org.freedesktop.PolicyKit1",
-            "/org/freedesktop/PolicyKit1/Authority", False),
-                                        "org.freedesktop.PolicyKit1.Authority")
+            self.polkit = dbus.Interface(
+                dbus.SystemBus().get_object(
+                    "org.freedesktop.PolicyKit1",
+                    "/org/freedesktop/PolicyKit1/Authority",
+                    False
+                ),
+                "org.freedesktop.PolicyKit1.Authority"
+            )
 
         # Check auth against polkit; if it times out, try again
         try:
             auth_response = self.polkit.CheckAuthorization(
-                ("unix-process", {"pid": dbus.UInt32(pid, variant_level=1),
-                                "start-time": dbus.UInt64(0, variant_level=1)}),
-                privilege, {"AllowUserInteraction": "true"}, dbus.UInt32(1), "", timeout=600)
+                ( "unix-process",
+                    { "pid": dbus.UInt32(pid, variant_level=1),
+                      "start-time": dbus.UInt64(0, variant_level=1)
+                    }
+                ),
+                privilege,
+                {"AllowUserInteraction": "true"},
+                dbus.UInt32(1),
+                "",
+                timeout=600
+            )
             self.log(syslog.LOG_INFO, auth_response)
             (is_auth, _, details) = auth_response
         except dbus.DBusException as e:
