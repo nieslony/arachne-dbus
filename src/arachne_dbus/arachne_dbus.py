@@ -120,12 +120,13 @@ class Arachne(dbus.service.Object):
 
     @dbus.service.method(DBUS_IFACE_SERVER, out_signature='(xa(ssssxxxssss))')
     def ServerStatus(self):
-        self.log(syslog.LOG_INFO, f"ServerStatus {self._server_name} changed")
+        self.log(syslog.LOG_INFO, f"Get {self._server_name} ServerStatus")
         self.sendSignal(signal.SIGUSR2)
         return self.readServerStatus()
 
     @dbus.service.signal(DBUS_IFACE_SERVER, signature='xa(ssssxxxssss)')
     def ServerStatusChanged(self, ti, cl):
+        self.log(syslog.LOG_DEBUG, f"Sending signal {self._server_name} ServerStatusChanged")
         pass
 
     def readServerStatus(self):
@@ -151,12 +152,18 @@ class Arachne(dbus.service.Object):
                         bytesReceived = int(bytesReceivedStr)
                         bytesSent = int(bytesSentStr)
                     except ValueError as ex:
-                        self.log(syslog.LOG_ERR, f"bytes received and bytes sent are not integer: {l}")
+                        self.log(
+                            syslog.LOG_ERR,
+                            f"bytes received and bytes sent are not integer: {l}"
+                        )
                     clients.append((commonName, readAddress, virtualAddress, virtualIpV6Address, bytesReceived, bytesSent, connectedSinceStr, username, clientId, peerId, dataChannelCipher))
         except IOError as ex:
             self.log(syslog.LOG_ERR, f"Cannot open status file {self._status_fn}: {ex.strerror}")
 
-        self.log(syslog.LOG_DEBUG, f"Clients connected to arachne-{self._server_name}: {clients}")
+        self.log(
+            syslog.LOG_DEBUG,
+            f"Clients connected to arachne-{self._server_name}: {clients}"
+        )
         return (statusTime, clients)
 
     def _check_polkit_privilege(self, sender, conn, privilege):
@@ -164,7 +171,10 @@ class Arachne(dbus.service.Object):
         if self.dbus_info is None:
             # Get DBus Interface and get info thru that
             self.dbus_info = dbus.Interface(
-                conn.get_object("org.freedesktop.DBus", "/org/freedesktop/DBus/Bus", False),
+                conn.get_object(
+                    "org.freedesktop.DBus",
+                    "/org/freedesktop/DBus/Bus", False
+                ),
                 "org.freedesktop.DBus"
             )
         pid = self.dbus_info.GetConnectionUnixProcessID(sender)
@@ -222,10 +232,16 @@ def main():
         "-b", "--bus",
         choices=["system","session"],
         default="system",
+        help="Connect to bus (default: %(default)s)"
         )
     parser.add_argument(
         "-d", "--directory",
-        default="/run/openvpn-server")
+        default="/run/openvpn-server",
+        help="""
+            Runtime directory with PID file and connected users log
+            (default: %(default)s)
+            """
+        )
     parser.add_argument(
         "-c", "--console-log",
         action='store_true',
