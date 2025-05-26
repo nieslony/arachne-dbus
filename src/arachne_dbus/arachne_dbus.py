@@ -139,7 +139,7 @@ class Arachne(dbus.service.Object):
                 try:
                     (line_head, _, statusTime) = l.split(",")
                 except ValueError as ex:
-                    self.log(syslog.LOG_ERR, f'Expected line "TIME,<ISO date time>,<secs since epoch>" got: "{l}"')
+                    self.log(syslog.LOG_ERR, f'Error parsing {self._status_fn}: Expected line "TIME,<ISO date time>,<secs since epoch>" got: "{l}"')
                 l = f.readline()
                 if not l.startswith("HEADER,CLIENT_LIST,"):
                     self.log(syslog.LOG_ERR, f'Expected "HEADER,CLIENT_LIST,..." got "{l}"')
