@@ -3,6 +3,7 @@ import dbus
 import dbus.service
 import time
 import signal
+import socket
 import os
 import os.path
 import threading
@@ -10,6 +11,8 @@ import inotify_simple
 import time
 import sys
 import syslog
+
+from .management_interface import *
 
 DBUS_BUS_NAME = "at.nieslony.Arachne"
 DBUS_IFACE_SERVER = DBUS_BUS_NAME + ".Server"
@@ -35,6 +38,9 @@ class Arachne(dbus.service.Object):
 
         self.dbus_info = None
         self.polkit = None
+
+        self._management_interface = ManagementInterface(f"{self._work_dir}/arachne-{self._server_name}.sock")
+        self._management_interface.start()
 
         self._observer = threading.Thread(target=self.observe_status)
         self._observer.daemon = True
@@ -127,6 +133,10 @@ class Arachne(dbus.service.Object):
     @dbus.service.signal(DBUS_IFACE_SERVER, signature='xa(ssssxxxssss)')
     def ServerStatusChanged(self, ti, cl):
         pass
+
+    @dbus.service.method(DBUS_IFACE_SERVER, out_signature='s')
+    def RunningAsUser(self):
+        return os.getlogin()
 
     def readServerStatus(self):
         clients = []
