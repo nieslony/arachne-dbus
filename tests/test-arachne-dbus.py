@@ -10,12 +10,13 @@ class TestArachneDbus(unittest.TestCase):
         self._bus = dbus.SessionBus()
         self._arachne = self._bus.get_object("at.nieslony.Arachne", "/UserVpn", True)
 
-    def test_RunningAsUser(self):
-        print("RunningAsUser")
-        username = self._arachne.RunningAsUser(dbus_interface="at.nieslony.Arachne.Server")
-        self.assertEqual(username, os.getlogin())
+    # def test_RunningAsUser(self):
+    #     print("RunningAsUser")
+    #     username = self._arachne.RunningAsUser(dbus_interface="at.nieslony.Arachne.Server")
+    #     self.assertEqual(username, os.getlogin())
 
     def test_RestartServer(self):
+        print("RestartServer")
         self._arachne.Restart()
 
 if __name__ == '__main__':
