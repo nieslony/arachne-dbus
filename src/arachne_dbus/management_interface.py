@@ -5,29 +5,28 @@ import sys
 import asyncio
 import syslog
 
-from . import logger
+from . logger import logger
 
 class AnswerHandler:
-    def __init__(self, reader, writer):
-        self._reader = reader
-        self._writer = writer
+    def __init__(self):
+        pass
 
     def pushAnswerLine(self, line: str) -> bool:
         return False
 
-    def writeCommand(self, command: str):
+    def writeCommand(self, command: str, writer):
         print("Sending command: " + command, file=sys.stdout)
         writer.write(str)
 
-    def run(self):
+    def run(self, reader, writer):
         pass
 
 class RestartHandler(AnswerHandler):
     def __init__(self, reader, writer):
         super().__init__(reader, writer)
 
-    def run(self):
-        self.sendCommand("signal SIGHUP")
+    def run(self, reader, writer):
+        self.sendCommand("signal SIGHUP". writer)
 
     def pushAnswerLine(self, line: str) -> bool:
         print("Got answer " + line)
@@ -41,8 +40,8 @@ class ManagementInterface:
         self._commandQeue = asyncio.Queue()
 
     def start(self):
-        # asyncio.run(self.management_handler())
-        logger.log(syslog.LOG_INFO, "Starting thread")
+        #asyncio.run(self.management_handler())
+        logger.log(syslog.LOG_INFO, "Starting management thread")
         loop = asyncio.get_event_loop()
         #loop.run_until_complete(self.multiThread())
         thread = threading.Thread(target=loop.run_until_complete, args=(self.multiThread(), ))
@@ -77,6 +76,7 @@ class ManagementInterface:
     async def handleEventQuete(self):
         while (True):
             event = await self._commandQeue.get()
+            logger.log(syslog.LOG_INFO, "Processing event")
             event.run()
 
     async def management_handler(self):

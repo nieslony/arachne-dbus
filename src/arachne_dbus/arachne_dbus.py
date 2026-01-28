@@ -55,7 +55,7 @@ class Arachne(dbus.service.Object):
                 f = open(self._status_fn, "a")
                 f.close()
             except PermissionError as ex:
-                self.log(syslog.LOG_CRIT, f"Error creating {self._status_fn}: {ex}")
+                logger.log(syslog.LOG_CRIT, f"Error creating {self._status_fn}: {ex}")
         try:
             wd = inotify.add_watch(self._status_fn, inotify_simple.flags.MODIFY)
         except OSError as ex:
@@ -95,7 +95,7 @@ class Arachne(dbus.service.Object):
     def Restart(self):
         logger.log(syslog.LOG_INFO, f"Restart {self._server_name} VPN")
         #self.sendSignal(signal.SIGHUP)
-        self._management_interface.restart()
+        asyncio.run(self._management_interface.restart())
 
     @dbus.service.method(DBUS_IFACE_SERVER, out_signature='(xa(ssssxxxssss))')
     def ServerStatus(self):
@@ -218,7 +218,7 @@ def main():
         help="Log to console instead of syslog"
         )
     args = parser.parse_args()
-    #logger = logger.Logger(args._console_log)
+    logger.console_log(args.console_log)
 
     import dbus.mainloop.glib
     from gi.repository import GLib
@@ -229,7 +229,7 @@ def main():
     try:
         loop = GLib.MainLoop()
         userVpn = Arachne("UserVpn", "user", args)
-        siteVpn = Arachne("SiteVpn", "site", args)
+        #siteVpn = Arachne("SiteVpn", "site", args)
         loop.run()
     except KeyboardInterrupt:
         pass
