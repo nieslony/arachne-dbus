@@ -1,55 +1,95 @@
 import threading
 import socket
 import time
+import sys
+import asyncio
+import syslog
+
+from . import logger
 
 class AnswerHandler:
+    def __init__(self, reader, writer):
+        self._reader = reader
+        self._writer = writer
+
     def pushAnswerLine(self, line: str) -> bool:
         return False
 
-    def handleAnswerLine(self):
+    def writeCommand(self, command: str):
+        print("Sending command: " + command, file=sys.stdout)
+        writer.write(str)
+
+    def run(self):
         pass
 
+class RestartHandler(AnswerHandler):
+    def __init__(self, reader, writer):
+        super().__init__(reader, writer)
 
+    def run(self):
+        self.sendCommand("signal SIGHUP")
+
+    def pushAnswerLine(self, line: str) -> bool:
+        print("Got answer " + line)
+        if not lines.startwith("SUCCESS:"):
+             raise dbus.DBusException(line)
+        return True
 
 class ManagementInterface:
     def __init__(self, socket_filename: str):
         self._management_socket_fn = socket_filename
-        self._management_handler = threading.Thread(target=self.management_handler)
-        self._management_handler.daemon = True
-        self._mgmt_file = None
-        self._answer_handler = None
+        self._commandQeue = asyncio.Queue()
 
     def start(self):
-        self._management_handler.start()
+        # asyncio.run(self.management_handler())
+        logger.log(syslog.LOG_INFO, "Starting thread")
+        loop = asyncio.get_event_loop()
+        #loop.run_until_complete(self.multiThread())
+        thread = threading.Thread(target=loop.run_until_complete, args=(self.multiThread(), ))
+        thread.start()
 
-    def sendSigHup(self):
-        self._mgmt_file.print("signal SIGHUP", file=self._mgmt_file)
+    async def restart(self):
+        await self._commandQeue.put(RestartHandler())
 
-    def management_handler(self):
+    async def multiThread(self):
+        await asyncio.gather(self.handleEventQuete(), self.management_handler())
+
+    async def readFromSocket(self, reader, writer):
+        line = await reader.readline()
+        if not line:
+            writer.close()
+            await writer.wait_closed()
+            self._commandQeue = None
+            print("Socket closed")
+            return
+        line = line.decode().strip()
+        if line.startswith(">"):
+            print(f'Push line: "{line}" (ignored)')
+        elif self._answer_handler:
+            print("push answer: " + line)
+            removeHandler = self._answer_handler.pushAnswerLine(line)
+            if removeHandler:
+                print("Exit handler")
+                self._answer_handler = None
+        else:
+            print(f"Unhandled line: {line}")
+
+    async def handleEventQuete(self):
+        while (True):
+            event = await self._commandQeue.get()
+            event.run()
+
+    async def management_handler(self):
         while True:
-            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as mgmt:
-                while True:
-                    try:
-                        mgmt.connect(self._management_socket_fn)
-                        break
-                    except ConnectionRefusedError as ex:
-                        pass
-                    except FileNotFoundError as ex:
-                        pass
-                    time.sleep(0.5)
+            while True:
+                try:
+                    reader, writer = await asyncio.open_unix_connection(self._management_socket_fn)
+                    break;
+                except FileNotFoundError:
+                    pass
+                except ConnectionRefusedError:
+                    pass
+                await asyncio.sleep(0.5)
+            while (True):
+                await self.readFromSocket(reader, writer)
 
-                self._mgmt_file = mgmt.makefile("rw")
-                while (True):
-                    line = self._mgmt_file.readline().strip()
-                    if not line:
-                        mgmt.close()
-                        print("Socket closed")
-                        break
-                    if line.startswith(">"):
-                        print(f"Push line {line} ignored")
-                    elif self._answer_handler:
-                        removeHandler = self._answer_handler.pushAnswerLine(line)
-                        if removeHandler:
-                            self._answer_handler = None
-                    else:
-                        print(f"Unhandled line: {line}")
