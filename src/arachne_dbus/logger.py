@@ -1,4 +1,7 @@
 import syslog
+import sys
+import os
+import signal
 
 class Logger:
     def __init__(self, console_log: bool):
@@ -32,4 +35,8 @@ class Logger:
         elif priority == syslog.LOG_CRIT:
             os.kill(os.getpid(), signal.SIGTERM)
 
-logger = None
+    def console_log(self, log: bool):
+        self._console_log = log
+
+
+logger = Logger(False)
