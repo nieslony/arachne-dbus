@@ -6,7 +6,7 @@ import signal
 import os
 import os.path
 import threading
-import pyinotify
+import inotify_simple
 import time
 import sys
 import syslog
