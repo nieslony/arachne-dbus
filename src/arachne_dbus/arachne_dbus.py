@@ -6,7 +6,7 @@ import signal
 import os
 import os.path
 import threading
-import inotify_simple
+import pyinotify
 import time
 import sys
 import syslog
@@ -222,10 +222,13 @@ def main():
         "-b", "--bus",
         choices=["system","session"],
         default="system",
+        help="DBus bus (default: %(default)s)"
         )
     parser.add_argument(
         "-d", "--directory",
-        default="/run/openvpn-server")
+        default="/run/openvpn-server",
+        help="Directory containing PID files and openvpn status (default: %(default)s)",
+        )
     parser.add_argument(
         "-c", "--console-log",
         action='store_true',
